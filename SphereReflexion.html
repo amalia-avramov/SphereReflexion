@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Sphere Reflexion</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+</head>
+<body>
+
+<script src="js/Three.js"></script>
+<script src="js/Detector.js"></script>
+<script src="js/Stats.js"></script>
+<script src="js/OrbitControls.js"></script>
+<script src="js/THREEx.KeyboardState.js"></script>
+<script src="js/THREEx.FullScreen.js"></script>
+<script src="js/THREEx.WindowResize.js"></script>
+
+
+
+<div id="ThreeJS" style="position: absolute; left:0px; top:0px"></div>
+<h4>Movement controls: </h4>
+    <h5>Use the scroll mouse for cube zoom in/out and click for rotation</h5>
+    <h5>Use the following keys combinations for sphere :</h5>
+    <li>Arrow keys/WASD: Translate
+    <li>QA:  Rotate Right/Left
+    <li>ED:  Rotate Left/Right
+    <li>RW: Rotate Up/Down
+    <li>FS: Rotate Down/Up
+    <li>Z: Reset position and rotation.
+
+<script>
+
+    // standard global variables
+    var container, scene, camera, renderer, controls, stats;
+    var keyboard = new THREEx.KeyboardState();
+    var clock = new THREE.Clock();
+
+    // custom global variables
+    var mirrorCube, mirrorCubeCamera; // for mirror material
+    var mirrorSphere, mirrorSphereCamera; // for mirror material
+
+    var MovingCube;
+    init();
+    animate();
+
+    // FUNCTIONS
+    function init()
+    {
+        // SCENE
+        scene = new THREE.Scene();
+        // CAMERA
+        var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+        var VIEW_ANGLE = 45, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 20000;
+        camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR);
+        scene.add(camera);
+        camera.position.set(-4000,150,-8000);
+        camera.lookAt(scene.position);
+        // RENDERER
+        if ( Detector.webgl )
+            renderer = new THREE.WebGLRenderer( {antialias:true} );
+        else
+            renderer = new THREE.CanvasRenderer();
+        renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+        container = document.getElementById( 'ThreeJS' );
+        container.appendChild( renderer.domElement );
+        // EVENTS
+        THREEx.WindowResize(renderer, camera);
+        THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
+        // CONTROLS
+        controls = new THREE.OrbitControls( camera, renderer.domElement );
+        // STATS
+        stats = new Stats();
+        stats.domElement.style.position = 'absolute';
+        stats.domElement.style.bottom = '0px';
+        stats.domElement.style.zIndex = 100;
+        container.appendChild( stats.domElement );
+        // LIGHT
+        var light = new THREE.PointLight(0xffffff);
+        light.position.set(0,250,0);
+        scene.add(light);
+
+        // FLOOR
+        var floorTexture = new THREE.ImageUtils.loadTexture( 'images/water4.jpg' );
+        floorTexture.wrapS = floorTexture.wrapT = THREE.RepeatWrapping;
+        floorTexture.repeat.set( 1, 1 );
+        var floorMaterial = new THREE.MeshBasicMaterial( { map: floorTexture, side:THREE.BackSide } );
+        var floorGeometry = new THREE.PlaneGeometry(5000, 5000, 10, 10);
+        var floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        floor.position.y = -1000;
+        floor.rotation.x = Math.PI / 2;
+        scene.add(floor);
+
+        // SKYBOX/FOG
+        var materialArray = [];
+        materialArray.push(new THREE.MeshBasicMaterial( { map: THREE.ImageUtils.loadTexture( 'images/outside2.jpg' ) }));
+        materialArray.push(new THREE.MeshBasicMaterial( { map: THREE.ImageUtils.loadTexture( 'images/outside2.jpg' ) }));
+        materialArray.push(new THREE.MeshBasicMaterial( { map: THREE.ImageUtils.loadTexture( 'images/outside3.jpg' ) }));
+        materialArray.push(new THREE.MeshBasicMaterial( { map: THREE.ImageUtils.loadTexture( 'images/ocean.jpg' ) }));
+        materialArray.push(new THREE.MeshBasicMaterial( { map: THREE.ImageUtils.loadTexture( 'images/outside1.jpg' ) }));
+        materialArray.push(new THREE.MeshBasicMaterial( { map: THREE.ImageUtils.loadTexture( 'images/outside1.jpg' ) }));
+        for (var i = 0; i < 6; i++)
+            materialArray[i].side = THREE.BackSide;
+        var skyboxMaterial = new THREE.MeshFaceMaterial( materialArray );
+        var skyboxGeom = new THREE.CubeGeometry( 5000, 5000, 5000, 1, 1, 1 );
+        var skybox = new THREE.Mesh( skyboxGeom, skyboxMaterial );
+        scene.add( skybox );
+
+
+        var sphereGeom =  new THREE.SphereGeometry( 500, 32, 16 ); // radius, segmentsWidth, segmentsHeight
+        mirrorSphereCamera = new THREE.CubeCamera( 0.1, 5000, 512 );
+        // mirrorCubeCamera.renderTarget.minFilter = THREE.LinearMipMapLinearFilter;
+        scene.add( mirrorSphereCamera );
+        var mirrorSphereMaterial = new THREE.MeshBasicMaterial( { envMap: mirrorSphereCamera.renderTarget } );
+        mirrorSphere = new THREE.Mesh( sphereGeom, mirrorSphereMaterial );
+        mirrorSphere.position.set(75,-990,0);
+        mirrorSphereCamera.position = mirrorSphere.position;
+        scene.add(mirrorSphere);
+
+    }
+
+    function animate()
+    {
+        requestAnimationFrame( animate );
+        render();
+        update();
+    }
+
+    function update()
+    {
+        var delta = clock.getDelta(); // seconds.
+        var moveDistance = 1000 * delta;
+        var rotateAngle = Math.PI / 2 * delta;   // pi/2 radians (90 degrees) per second
+
+        // local coordinates
+
+        // local transformations
+
+        // move forwards/backwards/left/right
+        if ( keyboard.pressed("W") )
+            mirrorSphere.translateZ( -moveDistance );
+        if ( keyboard.pressed("S") )
+            mirrorSphere.translateZ(  moveDistance );
+        if ( keyboard.pressed("A") )
+            mirrorSphere.translateX( -moveDistance );
+        if ( keyboard.pressed("D") )
+            mirrorSphere.translateX(  moveDistance );
+
+        // rotate left/right/up/down
+        var rotation_matrix = new THREE.Matrix4().identity();
+        if ( keyboard.pressed("Q") )
+            mirrorSphere.rotateOnAxis( new THREE.Vector3(0,1,0), rotateAngle);
+        if ( keyboard.pressed("E") )
+            mirrorSphere.rotateOnAxis( new THREE.Vector3(0,1,0), -rotateAngle);
+        if ( keyboard.pressed("R") )
+            mirrorSphere.rotateOnAxis( new THREE.Vector3(1,0,0), rotateAngle);
+        if ( keyboard.pressed("F") )
+            mirrorSphere.rotateOnAxis( new THREE.Vector3(1,0,0), -rotateAngle);
+
+        if ( keyboard.pressed("Z") )
+        {
+            mirrorSphere.position.set(75,-990,0);
+            mirrorSphere.rotation.set(0,0,0);
+        }
+
+        // global coordinates
+        if ( keyboard.pressed("left") )
+            mirrorSphere.position.x -= moveDistance;
+        if ( keyboard.pressed("right") )
+            mirrorSphere.position.x += moveDistance;
+        if ( keyboard.pressed("up") )
+            mirrorSphere.position.z -= moveDistance;
+        if ( keyboard.pressed("down") )
+            mirrorSphere.position.z += moveDistance;
+
+        controls.update();
+        stats.update();
+    }
+
+    function render()
+    {
+        mirrorSphere.visible = false;
+        mirrorSphereCamera.updateCubeMap( renderer, scene );
+        mirrorSphere.visible = true;
+
+        renderer.render( scene, camera );
+    }
+
+</script>
+
+</body>
+</html>
